@@ -187,9 +187,24 @@ function onResultsHands(results) {
     }
   }
 
+  if (results.handednesses) {
+    for (const hand of results.handednesses) {
+      Object.values(HAND_LANDMARKS).forEach(([landmark, index]) => { 
+        try {
+          const handIndex = results.handednesses.length > 1 ? Number(hand[0].index) : 0;
+          const handName = flipHands
+            ? (hand[0].categoryName === "Right" ? "Left" : "Right")
+            : hand[0].categoryName;
+          output[handName] = output[handName] || {};
+          output[handName][landmark] = results.landmarks[handIndex][index];
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    }
+  }
+  
   if (results.landmarks) {
-    // Create an array to hold the distance messages per hand.
-    let distances = [];
     results.landmarks.forEach((landmarks, handIdx) => {
       if (drawHands) {
         drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {
@@ -203,75 +218,95 @@ function onResultsHands(results) {
           radius: (data) => DrawingUtils.lerp(data.from.z, -0.15, .1, 2, 1)
         });
       }
-      // Ensure the landmarks array has enough points.
+      // Ensure we have enough points.
       if (landmarks.length > 8) {
         // Get thumb tip (index 4) and index finger tip (index 8)
         const thumbTip = landmarks[4];
         const indexTip = landmarks[8];
   
-        // Convert normalized coordinates to canvas pixel coordinates.
+        // Convert normalized coordinates to canvas coordinates.
         const x1 = thumbTip.x * overlay.width;
         const y1 = thumbTip.y * overlay.height;
         const x2 = indexTip.x * overlay.width;
         const y2 = indexTip.y * overlay.height;
   
-        // Calculate the midpoint.
+        // Calculate the midpoint between the two points.
         const mx = (x1 + x2) / 2;
         const my = (y1 + y2) / 2;
   
-        // Compute a perpendicular vector to the line from (x1,y1) to (x2,y2)
-        // The perpendicular vector is (-dy, dx)
+        // Compute the vector from thumb tip to index tip.
         const dx = x2 - x1;
         const dy = y2 - y1;
+  
+        // Get a perpendicular vector (-dy, dx).
         let px = -dy;
         let py = dx;
-        
+  
         // Normalize the perpendicular vector.
         const mag = Math.sqrt(px * px + py * py);
         if (mag > 0) {
-          px = px / mag;
-          py = py / mag;
+          px /= mag;
+          py /= mag;
         }
   
-        // Set an offset for the curve – adjust this value to change the curvature.
-        const offset = 30;
-        // Determine the control point by offsetting the midpoint.
-        const cx = mx + px * offset;
-        const cy = my + py * offset;
+        // Use the wrist (landmark 0) as a reference for the hand’s center.
+        const wrist = landmarks[0];
+        const wx = wrist.x * overlay.width;
+        const wy = wrist.y * overlay.height;
   
-        // Draw a curved line using quadraticCurveTo.
+        // Compute the vector from the wrist to the midpoint.
+        const vx = mx - wx;
+        const vy = my - wy;
+        const dot = vx * px + vy * py;
+        if (dot < 0) {
+          px = -px;
+          py = -py;
+        }
+  
+        // Set an offset for the curvature.
+        const offset = 30;
+  
+        // Define a simple linear interpolation function.
+        const lerp = (a, b, t) => a + (b - a) * t;
+  
+        // Introduce asymmetry by using different interpolation factors and offsets.
+        const p1Interp = 0.1;    // First control point at 30% along the line.
+        const p2Interp = 0.9;    // Second control point at 70% along the line.
+        const p1Offset = offset; // First control point offset.
+        const p2Offset = offset * 1.2; // Second control point gets a larger offset.
+  
+        const p1x = lerp(x1, x2, p1Interp) + px * p1Offset;
+        const p1y = lerp(y1, y2, p1Interp) + py * p1Offset;
+        const p2x = lerp(x1, x2, p2Interp) + px * p2Offset;
+        const p2y = lerp(y1, y2, p2Interp) + py * p2Offset;
+  
+        // Draw a cubic Bézier curve with the two control points.
         canvas.beginPath();
         canvas.moveTo(x1, y1);
-        canvas.quadraticCurveTo(cx, cy, x2, y2);
+        canvas.bezierCurveTo(p1x, p1y, p2x, p2y, x2, y2);
         canvas.strokeStyle = "#FFFFFF";
         canvas.lineWidth = 2;
         canvas.stroke();
   
-        // Optionally, calculate the distance along the curve (here we keep the straight-line distance)
+        // Calculate the straight-line distance.
         const distance = Math.sqrt(dx * dx + dy * dy);
   
         // Determine a hand identifier from handedness if available.
         let handName = "hand" + handIdx;
         if (results.handednesses && results.handednesses[handIdx] && results.handednesses[handIdx][0]) {
           handName = flipHands
-                      ? (results.handednesses[handIdx][0].categoryName === "Right" ? "Left" : "Right")
-                      : results.handednesses[handIdx][0].categoryName;
+            ? (results.handednesses[handIdx][0].categoryName === "Right" ? "Left" : "Right")
+            : results.handednesses[handIdx][0].categoryName;
         }
   
         // Output each distance as its own message.
         outputMax("distance " + handName + " " + distance);
       }
     });
-  
-    // If we got any distances, send them in one message.
-    // if (distances.length > 0) {
-      // This will output a string like: "distance Left:123.45 Right:234.56"
-      // outputMax("distance " + distances.join(" "));
-    // }
-  }  
+  }
   setMaxDict(output);
   outputMax("update");
-  canvas.restore();
+  canvas.restore(); 
 }
 
 const filesetResolver = await FilesetResolver.forVisionTasks(
