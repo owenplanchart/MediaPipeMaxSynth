@@ -355,6 +355,9 @@ function onResultsHands(results) {
       canvas.font = "16px Arial";
       canvas.fillStyle = "#F2A71B";
       canvas.fillText(distH.toFixed(2), midX, midY);
+      
+      // Send distH to Max.
+      outputMax("distH " + distH);
     }
   }
   setMaxDict(output);
