@@ -1,4 +1,4 @@
-# jweb-hands-landmarker
+# MediaPipeMaxSynth# jweb-hands-landmarker
 
 A self contained example demonstrating how to use MediaPipe HandLandmarker with Max's `jweb` connected to either a live webcamera stream or using still images.
 
