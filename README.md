@@ -1,5 +1,15 @@
 # MediaPipeMaxSynth# jweb-hands-landmarker
-This plays well with the patch MyKarpluStrungMediaPipe
+Colour Palette comes from here: https://color.adobe.com/explore
+/* Color Theme Swatches in Hex */
+.Green-on-Green---Porsche-991-Speedster-1-hex { color: #025E73; }
+.Green-on-Green---Porsche-991-Speedster-2-hex { color: #011F26; }
+.Green-on-Green---Porsche-991-Speedster-3-hex { color: #A5A692; }
+.Green-on-Green---Porsche-991-Speedster-4-hex { color: #BFB78F; }
+.Green-on-Green---Porsche-991-Speedster-5-hex { color: #F2A71B; }
+
+
+This Patch plays well with the patch MyKarpluStrungMediaPipe in MediaPipeExperiments folder
+
 
 A self contained example demonstrating how to use MediaPipe HandLandmarker with Max's `jweb` connected to either a live webcamera stream or using still images.
 

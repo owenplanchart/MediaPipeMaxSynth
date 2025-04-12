@@ -225,12 +225,12 @@ function onResultsHands(results) {
     results.landmarks.forEach((landmarks, handIdx) => {
       if (drawHands) {
         drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {
-          color: "#00FF00",
+          color: "#A5A692",
           lineWidth: 1
         });
         drawingUtils.drawLandmarks(landmarks, {
-          color: "#FF0000",
-          fillColor: "#FF0000",
+          color: "#011F26",
+          fillColor: "#025E73",
           lineWidth: (data) => 1 + data.from.z * -2,
           radius: (data) => DrawingUtils.lerp(data.from.z, -0.15, .1, 2, 1)
         });
@@ -302,12 +302,12 @@ function onResultsHands(results) {
         canvas.beginPath();
         canvas.moveTo(x1, y1);
         canvas.bezierCurveTo(p1x, p1y, p2x, p2y, x2, y2);
-        canvas.strokeStyle = "#FFFFFF";
+        canvas.strokeStyle = "#025E73";
         canvas.lineWidth = 2;
         canvas.stroke();
   
-        // For connecting the curves between hands, sample a point on the drawn curve.
-        // (You can adjust sampleT from 0 to 1 to choose a different point along the curve.)
+        // Sample a point on the drawn curve.
+        // (Adjust sampleT from 0 to 1 as needed; here, we choose t = 0.5.)
         const sampleT = 0.5;
         const P0 = { x: x1, y: y1 };
         const P1 = { x: p1x, y: p1y };
@@ -326,27 +326,40 @@ function onResultsHands(results) {
         // Save the sampled point for this hand.
         connectingPoints[handName] = samplePoint;
   
-        // Calculate the straight-line distance (for output purposes).
+        // Calculate the straight-line distance between thumb and index (for output purposes).
         const distance = Math.sqrt(dx * dx + dy * dy);
         outputMax("distance " + handName + " " + distance);
       }
     });
   
     // After processing all hands, if both left and right sample points are available,
-    // draw a straight line connecting these points.
+    // draw a straight line connecting these points and compute its distance (distH).
     if (connectingPoints["Left"] && connectingPoints["Right"]) {
       canvas.beginPath();
       canvas.moveTo(connectingPoints["Left"].x, connectingPoints["Left"].y);
       canvas.lineTo(connectingPoints["Right"].x, connectingPoints["Right"].y);
-      canvas.strokeStyle = "#FF00FF"; // For example, magenta.
+      canvas.strokeStyle = "#F2A71B"; // Adjusted colour.
       canvas.lineWidth = 2;
       canvas.stroke();
+  
+      // Calculate the distance between the two connecting points (distH).
+      const dxH = connectingPoints["Right"].x - connectingPoints["Left"].x;
+      const dyH = connectingPoints["Right"].y - connectingPoints["Left"].y;
+      const distH = Math.sqrt(dxH * dxH + dyH * dyH);
+  
+      // Compute the midpoint of the connecting line.
+      const midX = (connectingPoints["Left"].x + connectingPoints["Right"].x) / 2;
+      const midY = (connectingPoints["Left"].y + connectingPoints["Right"].y) / 2;
+  
+      // Display distH on the sketch.
+      canvas.font = "16px Arial";
+      canvas.fillStyle = "#F2A71B";
+      canvas.fillText(distH.toFixed(2), midX, midY);
     }
   }
   setMaxDict(output);
   outputMax("update");
-  canvas.restore();
-  
+  canvas.restore();  
 }
 
 const filesetResolver = await FilesetResolver.forVisionTasks(
