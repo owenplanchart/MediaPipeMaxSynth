@@ -205,6 +205,23 @@ function onResultsHands(results) {
   }
   
   if (results.landmarks) {
+    // Helper function to evaluate a cubic Bézier curve at parameter t.
+    function cubicBezierPoint(P0, P1, P2, P3, t) {
+      const oneMinusT = 1 - t;
+      const x = oneMinusT * oneMinusT * oneMinusT * P0.x +
+                3 * oneMinusT * oneMinusT * t * P1.x +
+                3 * oneMinusT * t * t * P2.x +
+                t * t * t * P3.x;
+      const y = oneMinusT * oneMinusT * oneMinusT * P0.y +
+                3 * oneMinusT * oneMinusT * t * P1.y +
+                3 * oneMinusT * t * t * P2.y +
+                t * t * t * P3.y;
+      return { x, y };
+    }
+  
+    // Create an object to store the sampled connecting point from each hand's curve.
+    let connectingPoints = {};
+  
     results.landmarks.forEach((landmarks, handIdx) => {
       if (drawHands) {
         drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {
@@ -270,17 +287,18 @@ function onResultsHands(results) {
         const lerp = (a, b, t) => a + (b - a) * t;
   
         // Introduce asymmetry by using different interpolation factors and offsets.
-        const p1Interp = 0.1;    // First control point at 30% along the line.
-        const p2Interp = 0.9;    // Second control point at 70% along the line.
-        const p1Offset = offset; // First control point offset.
-        const p2Offset = offset * 1.2; // Second control point gets a larger offset.
+        const p1Interp = 0.1;    // First control point interpolation factor.
+        const p2Interp = 0.9;    // Second control point interpolation factor.
+        const p1Offset = offset; // Offset for first control point.
+        const p2Offset = offset * 1.2; // Offset for second control point.
   
+        // Calculate control points for the cubic Bézier curve.
         const p1x = lerp(x1, x2, p1Interp) + px * p1Offset;
         const p1y = lerp(y1, y2, p1Interp) + py * p1Offset;
         const p2x = lerp(x1, x2, p2Interp) + px * p2Offset;
         const p2y = lerp(y1, y2, p2Interp) + py * p2Offset;
   
-        // Draw a cubic Bézier curve with the two control points.
+        // Draw the cubic Bézier curve from thumb tip to index tip.
         canvas.beginPath();
         canvas.moveTo(x1, y1);
         canvas.bezierCurveTo(p1x, p1y, p2x, p2y, x2, y2);
@@ -288,8 +306,14 @@ function onResultsHands(results) {
         canvas.lineWidth = 2;
         canvas.stroke();
   
-        // Calculate the straight-line distance.
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        // For connecting the curves between hands, sample a point on the drawn curve.
+        // (You can adjust sampleT from 0 to 1 to choose a different point along the curve.)
+        const sampleT = 0.5;
+        const P0 = { x: x1, y: y1 };
+        const P1 = { x: p1x, y: p1y };
+        const P2 = { x: p2x, y: p2y };
+        const P3 = { x: x2, y: y2 };
+        const samplePoint = cubicBezierPoint(P0, P1, P2, P3, sampleT);
   
         // Determine a hand identifier from handedness if available.
         let handName = "hand" + handIdx;
@@ -299,14 +323,30 @@ function onResultsHands(results) {
             : results.handednesses[handIdx][0].categoryName;
         }
   
-        // Output each distance as its own message.
+        // Save the sampled point for this hand.
+        connectingPoints[handName] = samplePoint;
+  
+        // Calculate the straight-line distance (for output purposes).
+        const distance = Math.sqrt(dx * dx + dy * dy);
         outputMax("distance " + handName + " " + distance);
       }
     });
+  
+    // After processing all hands, if both left and right sample points are available,
+    // draw a straight line connecting these points.
+    if (connectingPoints["Left"] && connectingPoints["Right"]) {
+      canvas.beginPath();
+      canvas.moveTo(connectingPoints["Left"].x, connectingPoints["Left"].y);
+      canvas.lineTo(connectingPoints["Right"].x, connectingPoints["Right"].y);
+      canvas.strokeStyle = "#FF00FF"; // For example, magenta.
+      canvas.lineWidth = 2;
+      canvas.stroke();
+    }
   }
   setMaxDict(output);
   outputMax("update");
-  canvas.restore(); 
+  canvas.restore();
+  
 }
 
 const filesetResolver = await FilesetResolver.forVisionTasks(
